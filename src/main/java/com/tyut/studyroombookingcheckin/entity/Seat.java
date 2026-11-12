@@ -22,7 +22,7 @@ public class Seat implements Serializable {
     private String seatNo;
 
     @TableField("seat_row")
-    private Integer row;
+    private Integer seatRow;
 
     @TableField("seat_col")
     private Integer col;

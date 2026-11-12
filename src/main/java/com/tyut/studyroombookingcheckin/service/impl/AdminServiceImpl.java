@@ -78,10 +78,10 @@ public class AdminServiceImpl implements AdminService {
             Map<String, Object> item = new HashMap<>();
             item.put("roomId", r.getId());
             item.put("roomName", r.getName());
-            item.put("totalSeats", r.getTotalSeats());
             Integer available = roomMapper.countAvailableSeats(r.getId());
             item.put("availableSeats", available);
             Integer active = roomMapper.countTotalActiveSeats(r.getId());
+            item.put("totalSeats", active);
             double rate = active > 0 ? Math.round((active - available) * 100.0 / active) / 100.0 : 0;
             item.put("utilizationRate", rate);
             data.add(item);

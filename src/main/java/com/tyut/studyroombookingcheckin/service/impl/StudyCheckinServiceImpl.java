@@ -78,6 +78,24 @@ public class StudyCheckinServiceImpl implements StudyCheckinService {
     }
 
     @Override
+    public void endByBooking(Long bookingId) {
+        StudyCheckin active = studyCheckinMapper.selectOne(new LambdaQueryWrapper<StudyCheckin>()
+                .eq(StudyCheckin::getBookingId, bookingId)
+                .eq(StudyCheckin::getStatus, Constants.CHECKIN_STATUS_STARTED)
+                .orderByDesc(StudyCheckin::getId)
+                .last("LIMIT 1"));
+        if (active == null) {
+            return;
+        }
+        LocalDateTime now = LocalDateTime.now();
+        active.setEndTime(now);
+        active.setDurationMinutes((int) java.time.Duration.between(active.getStartTime(), now).toMinutes());
+        active.setStatus(Constants.CHECKIN_STATUS_ENDED);
+        active.setUpdateTime(now);
+        studyCheckinMapper.updateById(active);
+    }
+
+    @Override
     public StudyStatisticsVO getStatistics(Long userId) {
         StudyStatisticsVO vo = new StudyStatisticsVO();
         LocalDate today = LocalDate.now();

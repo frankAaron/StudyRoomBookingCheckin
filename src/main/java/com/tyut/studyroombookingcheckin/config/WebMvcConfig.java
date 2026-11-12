@@ -35,7 +35,15 @@ public class WebMvcConfig implements WebMvcConfigurer {
                         "/auth/captcha",
                         "/buildings/**",
                         "/rooms/**",
-                        "/seats/**"
+                        "/seats/**",
+                        "/",
+                        "/index.html",
+                        "/app.html",
+                        "/favicon.ico",
+                        "/error",
+                        "/css/**",
+                        "/js/**",
+                        "/images/**"
                 );
     }
 }

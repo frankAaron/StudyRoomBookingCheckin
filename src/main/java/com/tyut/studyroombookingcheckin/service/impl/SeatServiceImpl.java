@@ -29,8 +29,18 @@ public class SeatServiceImpl implements SeatService {
     @Override
     public List<SeatVO> listByRoom(Long roomId) {
         List<Seat> seats = seatMapper.selectList(new LambdaQueryWrapper<Seat>()
-                .eq(Seat::getRoomId, roomId)
-                .orderByAsc(Seat::getRow, Seat::getCol));
+                .eq(Seat::getRoomId, roomId));
+        // row 为 MySQL 保留字，排序在内存中完成，避免 ORDER BY row 语法错误
+        seats.sort((a, b) -> {
+            int ra = a.getSeatRow() == null ? 0 : a.getSeatRow();
+            int rb = b.getSeatRow() == null ? 0 : b.getSeatRow();
+            if (ra != rb) {
+                return ra - rb;
+            }
+            int ca = a.getCol() == null ? 0 : a.getCol();
+            int cb = b.getCol() == null ? 0 : b.getCol();
+            return ca - cb;
+        });
         List<SeatVO> vos = new ArrayList<>();
         for (Seat s : seats) {
             vos.add(toVO(s));
@@ -56,7 +66,7 @@ public class SeatServiceImpl implements SeatService {
         Seat s = new Seat();
         s.setRoomId(vo.getRoomId());
         s.setSeatNo(vo.getSeatNo());
-        s.setRow(vo.getRow());
+        s.setSeatRow(vo.getRow());
         s.setCol(vo.getCol());
         s.setStatus(Constants.SEAT_STATUS_FREE);
         s.setQrcode(UUID.randomUUID().toString());
@@ -73,7 +83,7 @@ public class SeatServiceImpl implements SeatService {
             throw new BusinessException(ErrorCode.SEAT_NOT_EXIST);
         }
         s.setSeatNo(vo.getSeatNo());
-        s.setRow(vo.getRow());
+        s.setSeatRow(vo.getRow());
         s.setCol(vo.getCol());
         s.setUpdateTime(LocalDateTime.now());
         seatMapper.updateById(s);
@@ -98,7 +108,7 @@ public class SeatServiceImpl implements SeatService {
                 Seat s = new Seat();
                 s.setRoomId(roomId);
                 s.setSeatNo(r + "-" + c);
-                s.setRow(r);
+                s.setSeatRow(r);
                 s.setCol(c);
                 s.setStatus(Constants.SEAT_STATUS_FREE);
                 s.setQrcode(UUID.randomUUID().toString());
@@ -141,7 +151,7 @@ public class SeatServiceImpl implements SeatService {
         vo.setId(s.getId());
         vo.setRoomId(s.getRoomId());
         vo.setSeatNo(s.getSeatNo());
-        vo.setRow(s.getRow());
+        vo.setRow(s.getSeatRow());
         vo.setCol(s.getCol());
         vo.setStatus(s.getStatus());
         vo.setOccupiedUserId(s.getOccupiedUserId());

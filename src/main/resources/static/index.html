@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登录 · 自习室预约与学习打卡系统</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="auth-page">
+    <div class="auth-shell">
+        <aside class="auth-aside">
+            <div>
+                <div class="auth-brand">
+                    <div class="logo-mark">SR</div>
+                    <div>Study Room</div>
+                </div>
+                <div class="auth-title">预约一间自习室<br>让每一次专注都被记录</div>
+                <div class="auth-desc">按楼栋与楼层查看自习室，实时掌握座位状态，一站式完成预约、扫码签到、学习计时与数据复盘。</div>
+                <ul class="auth-points">
+                    <li><span class="dot"></span>楼层化座位图，空位一目了然</li>
+                    <li><span class="dot"></span>扫码签到，离座即时释放座位</li>
+                    <li><span class="dot"></span>每日 / 每周学习时长与热力图</li>
+                    <li><span class="dot"></span>排行榜、好友监督与成就体系</li>
+                </ul>
+            </div>
+            <div class="auth-foot">校园自习室预约与学习打卡平台</div>
+        </aside>
+
+        <div class="auth-form-wrap">
+            <div class="auth-tabs">
+                <button type="button" class="auth-tab active" data-tab="login">登录</button>
+                <button type="button" class="auth-tab" data-tab="register">注册</button>
+            </div>
+
+            <form id="loginForm">
+                <div class="field">
+                    <label for="loginUsername">账号</label>
+                    <input class="input" id="loginUsername" placeholder="用户名或学号" autocomplete="username" required>
+                </div>
+                <div class="field">
+                    <label for="loginPassword">密码</label>
+                    <input class="input" id="loginPassword" type="password" placeholder="请输入密码" autocomplete="current-password" required>
+                </div>
+                <button class="btn block" type="submit" id="loginBtn">登录</button>
+                <div class="hint mt12">演示管理员：admin / admin123（若数据库已执行初始化脚本）</div>
+            </form>
+
+            <form id="registerForm" class="hidden">
+                <div class="field">
+                    <label for="regStudentNo">学号 / 工号</label>
+                    <input class="input" id="regStudentNo" placeholder="例如 S2024001" required>
+                </div>
+                <div class="field">
+                    <label for="regUsername">用户名</label>
+                    <input class="input" id="regUsername" placeholder="登录账号，建议英文或数字" required>
+                </div>
+                <div class="field">
+                    <label for="regPassword">密码</label>
+                    <input class="input" id="regPassword" type="password" placeholder="6-20 位" required>
+                </div>
+                <div class="field">
+                    <label for="regNickname">昵称</label>
+                    <input class="input" id="regNickname" placeholder="展示在排行榜中的名字，可留空">
+                </div>
+                <div class="field">
+                    <label for="regFaculty">院系编码</label>
+                    <input class="input" id="regFaculty" type="number" min="1" placeholder="选填，例如 1">
+                </div>
+                <div class="field">
+                    <label for="regEmail">邮箱</label>
+                    <input class="input" id="regEmail" type="email" placeholder="选填">
+                </div>
+                <button class="btn block" type="submit" id="registerBtn">注册并登录</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script src="js/api.js"></script>
+<script src="js/ui.js"></script>
+<script>
+(function () {
+    if (API.hasLogin()) {
+        window.location.replace('app.html');
+        return;
+    }
+
+    var tabs = document.querySelectorAll('.auth-tab');
+    var loginForm = document.getElementById('loginForm');
+    var registerForm = document.getElementById('registerForm');
+
+    tabs.forEach(function (tab) {
+        tab.addEventListener('click', function () {
+            tabs.forEach(function (t) { t.classList.remove('active'); });
+            tab.classList.add('active');
+            var isLogin = tab.dataset.tab === 'login';
+            loginForm.classList.toggle('hidden', !isLogin);
+            registerForm.classList.toggle('hidden', isLogin);
+        });
+    });
+
+    loginForm.addEventListener('submit', async function (e) {
+        e.preventDefault();
+        var btn = document.getElementById('loginBtn');
+        var username = document.getElementById('loginUsername').value.trim();
+        var password = document.getElementById('loginPassword').value;
+        if (!username || !password) return;
+        btn.disabled = true;
+        btn.textContent = '登录中...';
+        try {
+            var data = await API.post('/auth/login', { username: username, password: password });
+            API.saveSession(data);
+            UI.toast('登录成功，正在进入', 'ok');
+            setTimeout(function () { window.location.href = 'app.html'; }, 320);
+        } catch (err) {
+            UI.toast(err.message || '登录失败', 'err');
+            btn.disabled = false;
+            btn.textContent = '登录';
+        }
+    });
+
+    registerForm.addEventListener('submit', async function (e) {
+        e.preventDefault();
+        var btn = document.getElementById('registerBtn');
+        var payload = {
+            studentNo: document.getElementById('regStudentNo').value.trim(),
+            username: document.getElementById('regUsername').value.trim(),
+            password: document.getElementById('regPassword').value,
+            nickname: document.getElementById('regNickname').value.trim() || null,
+            faculty: document.getElementById('regFaculty').value ? Number(document.getElementById('regFaculty').value) : null,
+            email: document.getElementById('regEmail').value.trim() || null
+        };
+        if (!payload.studentNo || !payload.username || !payload.password) {
+            UI.toast('请填写学号、用户名和密码', 'warn');
+            return;
+        }
+        if (payload.password.length < 6 || payload.password.length > 20) {
+            UI.toast('密码长度需为 6-20 位', 'warn');
+            return;
+        }
+        btn.disabled = true;
+        btn.textContent = '注册中...';
+        try {
+            await API.post('/auth/register', payload);
+            UI.toast('注册成功，已自动登录', 'ok');
+            var data = await API.post('/auth/login', { username: payload.username, password: payload.password });
+            API.saveSession(data);
+            setTimeout(function () { window.location.href = 'app.html'; }, 400);
+        } catch (err) {
+            UI.toast(err.message || '注册失败', 'err');
+            btn.disabled = false;
+            btn.textContent = '注册并登录';
+        }
+    });
+})();
+</script>
+</body>
+</html>

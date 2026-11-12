@@ -10,6 +10,11 @@ public interface StudyCheckinService {
 
     StudyCheckinVO endCheckin(Long checkinId, Long userId);
 
+    /**
+     * 预约离座时同步结束该预约对应的进行中打卡
+     */
+    void endByBooking(Long bookingId);
+
     StudyStatisticsVO getStatistics(Long userId);
 
     Page<StudyCheckinVO> pageByUser(Long userId, long current, long size);

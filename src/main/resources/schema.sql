@@ -185,7 +185,7 @@ CREATE TABLE IF NOT EXISTS t_violation (
 
 -- 初始化数据：管理员账号（密码 admin123，BCrypt加密）
 INSERT INTO t_user (student_no, username, password, nickname, role, status) VALUES
-('admin', 'admin', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', '系统管理员', 1, 1);
+('admin', 'admin', '$2a$10$65I8MIACFZnNnoZ8zc3Ap.rEtop5jN5d12RekRXTebaFvLuYvUBfm', '系统管理员', 1, 1);
 
 -- 初始化楼栋示例
 INSERT INTO t_building (name, code, location, description) VALUES

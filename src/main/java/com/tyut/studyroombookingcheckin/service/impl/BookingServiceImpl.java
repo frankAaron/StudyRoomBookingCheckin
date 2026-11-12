@@ -153,6 +153,7 @@ public class BookingServiceImpl implements BookingService {
             seat.setUpdateTime(LocalDateTime.now());
             seatMapper.updateById(seat);
         }
+        studyCheckinService.endByBooking(bookingId);
         return toVO(booking);
     }
 
