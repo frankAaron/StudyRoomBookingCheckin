@@ -21,6 +21,14 @@
         >
           <el-icon><component :is="item.icon" /></el-icon>
           <span>{{ item.label }}</span>
+          <el-badge
+            v-if="item.name === 'ranking' && store.pendingRequests"
+            :value="store.pendingRequests"
+            :hidden="!store.pendingRequests"
+            style="margin-left: auto"
+          >
+            <span style="width: 8px; height: 8px; display: inline-block"></span>
+          </el-badge>
         </a>
       </nav>
     </aside>
@@ -139,7 +147,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   House, Grid, Tickets, Timer, TrendCharts, Aim, Trophy, Setting, User, Edit, Camera, Loading
 } from '@element-plus/icons-vue'
-import { store, clearSession, patchUser } from './store'
+import { store, clearSession, patchUser, refreshPendingRequests } from './store'
 import { api, assetUrl } from './api'
 
 const route = useRoute()
@@ -353,11 +361,17 @@ async function logout() {
 watch(
   () => store.token,
   (token) => {
-    if (token && !store.user) loadProfile()
+    if (token) {
+      if (!store.user) loadProfile()
+      refreshPendingRequests()
+    }
   }
 )
 
 onMounted(() => {
-  if (store.token && !store.user) loadProfile()
+  if (store.token) {
+    if (!store.user) loadProfile()
+    refreshPendingRequests()
+  }
 })
 </script>

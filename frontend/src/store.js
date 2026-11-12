@@ -1,4 +1,5 @@
 import { reactive, computed } from 'vue'
+import { api } from './api'
 
 const TOKEN_KEY = 'srb_token'
 const USER_KEY = 'srb_user'
@@ -14,7 +15,8 @@ function readUser() {
 
 export const store = reactive({
   token: localStorage.getItem(TOKEN_KEY) || '',
-  user: readUser()
+  user: readUser(),
+  pendingRequests: 0
 })
 
 export const isAdmin = computed(() => store.user && store.user.role === 1)
@@ -35,6 +37,16 @@ export function patchUser(partial) {
 export function clearSession() {
   store.token = ''
   store.user = null
+  store.pendingRequests = 0
   localStorage.removeItem(TOKEN_KEY)
   localStorage.removeItem(USER_KEY)
+}
+
+export async function refreshPendingRequests() {
+  try {
+    const res = await api.friendRequests({ current: 1, size: 1 })
+    store.pendingRequests = res.total ?? (res.records ? res.records.length : 0)
+  } catch {
+    store.pendingRequests = 0
+  }
 }

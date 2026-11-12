@@ -13,6 +13,7 @@ import com.tyut.studyroombookingcheckin.mapper.UserMapper;
 import com.tyut.studyroombookingcheckin.service.FriendService;
 import com.tyut.studyroombookingcheckin.vo.RankingVO;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -41,13 +42,17 @@ public class FriendServiceImpl implements FriendService {
         if (friend == null) {
             throw new BusinessException(ErrorCode.USER_NOT_EXIST);
         }
-        Long exist = friendMapper.selectCount(new LambdaQueryWrapper<Friend>()
-                .and(w -> w
-                        .eq(Friend::getUserId, userId).eq(Friend::getFriendId, friendId)
-                        .or()
-                        .eq(Friend::getUserId, friendId).eq(Friend::getFriendId, userId)));
-        if (exist > 0) {
+        Long alreadyFriend = friendMapper.selectCount(new LambdaQueryWrapper<Friend>()
+                .eq(Friend::getUserId, userId).eq(Friend::getFriendId, friendId).eq(Friend::getStatus, 1)
+                .or()
+                .eq(Friend::getUserId, friendId).eq(Friend::getFriendId, userId).eq(Friend::getStatus, 1));
+        if (alreadyFriend > 0) {
             throw new BusinessException(ErrorCode.ALREADY_FRIEND);
+        }
+        Long pending = friendMapper.selectCount(new LambdaQueryWrapper<Friend>()
+                .eq(Friend::getUserId, userId).eq(Friend::getFriendId, friendId).eq(Friend::getStatus, 0));
+        if (pending > 0) {
+            throw new BusinessException(ErrorCode.FRIEND_REQUEST_EXIST);
         }
         Friend f = new Friend();
         f.setUserId(userId);
@@ -55,7 +60,11 @@ public class FriendServiceImpl implements FriendService {
         f.setStatus(0);
         f.setCreateTime(LocalDateTime.now());
         f.setUpdateTime(LocalDateTime.now());
-        friendMapper.insert(f);
+        try {
+            friendMapper.insert(f);
+        } catch (DuplicateKeyException e) {
+            throw new BusinessException(ErrorCode.FRIEND_REQUEST_EXIST);
+        }
     }
 
     @Override
@@ -72,13 +81,22 @@ public class FriendServiceImpl implements FriendService {
         request.setUpdateTime(LocalDateTime.now());
         friendMapper.updateById(request);
 
-        Friend reverse = new Friend();
-        reverse.setUserId(userId);
-        reverse.setFriendId(friendId);
-        reverse.setStatus(1);
-        reverse.setCreateTime(LocalDateTime.now());
-        reverse.setUpdateTime(LocalDateTime.now());
-        friendMapper.insert(reverse);
+        Friend reverse = friendMapper.selectOne(new LambdaQueryWrapper<Friend>()
+                .eq(Friend::getUserId, userId)
+                .eq(Friend::getFriendId, friendId));
+        if (reverse == null) {
+            reverse = new Friend();
+            reverse.setUserId(userId);
+            reverse.setFriendId(friendId);
+            reverse.setStatus(1);
+            reverse.setCreateTime(LocalDateTime.now());
+            reverse.setUpdateTime(LocalDateTime.now());
+            friendMapper.insert(reverse);
+        } else if (reverse.getStatus() == 0) {
+            reverse.setStatus(1);
+            reverse.setUpdateTime(LocalDateTime.now());
+            friendMapper.updateById(reverse);
+        }
     }
 
     @Override
@@ -97,10 +115,9 @@ public class FriendServiceImpl implements FriendService {
     @Transactional
     public void unfriend(Long userId, Long friendId) {
         friendMapper.delete(new LambdaQueryWrapper<Friend>()
-                .and(w -> w
-                        .eq(Friend::getUserId, userId).eq(Friend::getFriendId, friendId)
-                        .or()
-                        .eq(Friend::getUserId, friendId).eq(Friend::getFriendId, userId)));
+                .eq(Friend::getUserId, userId).eq(Friend::getFriendId, friendId)
+                .or()
+                .eq(Friend::getUserId, friendId).eq(Friend::getFriendId, userId));
     }
 
     @Override

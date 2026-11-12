@@ -112,7 +112,7 @@ import { computed, onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import { api, assetUrl } from '../api'
-import { store } from '../store'
+import { store, refreshPendingRequests } from '../store'
 
 const period = ref('weekly')
 const ranking = ref([])
@@ -186,6 +186,7 @@ async function accept(row) {
     await api.acceptFriend(row.userId)
     ElMessage.success('已添加好友')
     loadFriends()
+    refreshPendingRequests()
   } catch (e) {
     ElMessage.error(e.message)
   }
@@ -196,6 +197,7 @@ async function reject(row) {
     await api.rejectFriend(row.userId)
     ElMessage.success('已拒绝')
     loadFriends()
+    refreshPendingRequests()
   } catch (e) {
     ElMessage.error(e.message)
   }

@@ -167,8 +167,15 @@
         <el-form-item label="楼层" prop="floor">
           <el-input-number v-model="roomForm.floor" :min="1" :max="30" style="width: 100%" />
         </el-form-item>
-        <el-form-item label="总座位数">
-          <el-input-number v-model="roomForm.totalSeats" :min="0" :max="500" style="width: 100%" />
+        <el-form-item label="座位数">
+          <div style="display: flex; align-items: center; gap: 10px; width: 100%">
+            <el-tag type="info" effect="plain" size="large">
+              {{ roomForm.totalSeats || 0 }} 个（由座位表决定）
+            </el-tag>
+            <span class="muted" style="font-size: 12px">
+              在房间卡片上点「管理 → 批量生成座位」调整
+            </span>
+          </div>
         </el-form-item>
         <el-form-item label="开放时间">
           <div style="display: flex; gap: 8px; width: 100%">

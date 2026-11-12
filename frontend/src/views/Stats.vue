@@ -1,7 +1,7 @@
 <template>
   <div class="page">
     <div class="page-title">学习统计</div>
-    <div class="page-sub">绝对刻度热力图：颜色越深表示当天学习时长越长</div>
+    <div class="page-sub">每日 / 每周学习时长与热力图</div>
 
     <div class="stat-grid">
       <div class="stat-card">
@@ -34,27 +34,13 @@
     </div>
 
     <div class="card">
-      <div class="card-title">
-        <span>学习热力图（最近 52 周）</span>
-        <div class="legend">
-          <span class="muted">0</span>
-          <i class="legend-dot" style="background: #eef1f6"></i>
-          <span class="muted">1-29</span>
-          <i class="legend-dot" style="background: #c7d7fe"></i>
-          <span class="muted">30-59</span>
-          <i class="legend-dot" style="background: #8fa8fb"></i>
-          <span class="muted">60-119</span>
-          <i class="legend-dot" style="background: #5b7cfa"></i>
-          <span class="muted">≥120</span>
-          <i class="legend-dot" style="background: #2f4bd0"></i>
-        </div>
-      </div>
-      <div ref="heatEl" class="chart" style="height: 200px"></div>
+      <div class="card-title">学习热力图（最近 52 周）</div>
+      <div ref="heatEl" class="chart" style="height: 300px"></div>
     </div>
 
     <div class="card">
       <div class="card-title">星期学习分布（分钟）</div>
-      <div ref="barEl" class="chart-sm"></div>
+      <div ref="barEl" class="chart" style="height: 260px"></div>
     </div>
   </div>
 </template>
@@ -134,9 +120,9 @@ function initHeat() {
       orient: 'horizontal',
       left: 'center',
       bottom: 0,
-      itemWidth: 12,
-      itemHeight: 12,
-      textStyle: { color: '#8a94a6', fontSize: 11 },
+      itemWidth: 14,
+      itemHeight: 14,
+      textStyle: { color: '#8a94a6', fontSize: 12 },
       pieces: [
         { lte: 0, label: '0', color: '#eef1f6' },
         { gt: 0, lte: 29, label: '1-29', color: '#c7d7fe' },
@@ -146,16 +132,32 @@ function initHeat() {
       ]
     },
     calendar: {
-      top: 30,
-      left: 44,
+      top: 52,
+      left: 64,
       right: 20,
+      bottom: 40,
       range: [start, end],
-      cellSize: ['auto', 14],
+      cellSize: [16, 16],
       splitLine: { show: false },
-      itemStyle: { borderWidth: 2, borderColor: '#fff' },
+      itemStyle: { borderWidth: 1, borderColor: '#fff' },
       yearLabel: { show: false },
-      monthLabel: { color: '#8a94a6', fontSize: 11 },
-      dayLabel: { color: '#8a94a6', fontSize: 11, firstDay: 0, nameMap: ['日', '一', '二', '三', '四', '五', '六'] }
+      monthLabel: {
+        color: '#5c6678',
+        fontSize: 14,
+        fontWeight: 600,
+        padding: [0, 0, 10, 0],
+        nameMap: [
+          '1月', '2月', '3月', '4月', '5月', '6月',
+          '7月', '8月', '9月', '10月', '11月', '12月'
+        ]
+      },
+      dayLabel: {
+        color: '#8a94a6',
+        fontSize: 14,
+        padding: [0, 12, 0, 0],
+        firstDay: 0,
+        nameMap: ['日', '一', '二', '三', '四', '五', '六']
+      }
     },
     series: [
       {
@@ -172,13 +174,13 @@ function initBar() {
   barChart = echarts.init(barEl.value)
   const heat = stats.value.heatmap || [0, 0, 0, 0, 0, 0, 0]
   barChart.setOption({
-    grid: { left: 44, right: 20, top: 20, bottom: 30 },
+    grid: { left: 44, right: 20, top: 20, bottom: 34 },
     tooltip: { trigger: 'axis' },
     xAxis: {
       type: 'category',
       data: ['周日', '周一', '周二', '周三', '周四', '周五', '周六'],
       axisLine: { lineStyle: { color: '#dbe1ec' } },
-      axisLabel: { color: '#8a94a6' }
+      axisLabel: { color: '#8a94a6', fontSize: 13 }
     },
     yAxis: {
       type: 'value',
@@ -188,7 +190,7 @@ function initBar() {
     series: [
       {
         type: 'bar',
-        barWidth: 26,
+        barWidth: 40,
         data: heat,
         itemStyle: {
           borderRadius: [8, 8, 0, 0],
