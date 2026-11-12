@@ -41,8 +41,9 @@ export async function request(path, options = {}) {
 
   if (res.status === 401) {
     clearSession()
-    if (!location.hash.includes('/login')) {
-      location.hash = '#/login'
+    const loginPath = `${import.meta.env.BASE_URL}login`
+    if (!location.pathname.endsWith('/login')) {
+      location.replace(loginPath)
     }
     throw new Error('登录已过期，请重新登录')
   }

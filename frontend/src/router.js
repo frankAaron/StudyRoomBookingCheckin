@@ -1,11 +1,12 @@
-import { createRouter, createWebHashHistory } from 'vue-router'
+import { createRouter, createWebHistory } from 'vue-router'
 import { store } from './store'
 
 const routes = [
   { path: '/login', name: 'login', component: () => import('./views/Login.vue'), meta: { public: true } },
   { path: '/', redirect: '/home' },
   { path: '/home', name: 'home', component: () => import('./views/Home.vue'), meta: { title: '首页' } },
-  { path: '/rooms', name: 'rooms', component: () => import('./views/Rooms.vue'), meta: { title: '自习室与座位' } },
+  // 页面路径不能与后端 GET /rooms 接口重名，故使用 /reserve
+  { path: '/reserve', name: 'rooms', component: () => import('./views/Rooms.vue'), meta: { title: '自习室与座位' } },
   { path: '/bookings', name: 'bookings', component: () => import('./views/Bookings.vue'), meta: { title: '我的预约' } },
   { path: '/study', name: 'study', component: () => import('./views/Study.vue'), meta: { title: '学习计时' } },
   { path: '/stats', name: 'stats', component: () => import('./views/Stats.vue'), meta: { title: '学习统计' } },
@@ -17,7 +18,7 @@ const routes = [
 ]
 
 const router = createRouter({
-  history: createWebHashHistory(),
+  history: createWebHistory(import.meta.env.BASE_URL),
   routes
 })
 

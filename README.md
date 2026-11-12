@@ -42,7 +42,7 @@
 
 **前端**
 
-- Vue 3.5 + Vue Router 4（哈希路由）+ Element Plus 2.8 + ECharts 5.5
+- Vue 3.5 + Vue Router 4（History 路由，base `/api/`，地址形如 `/api/login`）+ Element Plus 2.8 + ECharts 5.5
 - Node.js + Vite 5 构建，产物输出至 `src/main/resources/static`（由后端统一托管）
 - 基于 `fetch` 的请求封装，统一注入 Token、处理 401/403 与业务错误码
 
@@ -162,11 +162,11 @@ java -jar target/StudyRoomBookingCheckin-1.0.0.jar
 
 | 入口     | 地址                                 |
 | -------- | ------------------------------------ |
-| 登录页   | http://localhost:8080/api/index.html#/login |
-| 学生端   | 登录后进入 `#/home`，通过左侧导航切换    |
-| 管理后台 | 管理员登录后左侧出现「管理后台」         |
+| 登录页   | http://localhost:8080/api/login |
+| 学生端   | 登录后进入 `/api/home`，通过左侧导航切换；也可直接访问 `/api/reserve`、`/api/stats` 等地址 |
+| 管理后台 | 管理员登录后进入 `/api/admin`，左侧出现「管理后台」 |
 
-> 应用配置了 `server.servlet.context-path: /api`，所有页面与接口均在 `/api` 前缀下。
+> 应用配置了 `server.servlet.context-path: /api`，所有页面与接口均在 `/api` 前缀下；前端使用 History 路由，刷新或直接访问深层地址由后端转发到 `index.html`，不会 404。
 
 ### 5.7 演示账号
 
@@ -180,15 +180,15 @@ java -jar target/StudyRoomBookingCheckin-1.0.0.jar
 
 | 路由           | 页面       | 说明                                                                     |
 | -------------- | ---------- | ------------------------------------------------------------------------ |
-| `#/home`     | 学习概览   | 今日/本月/连续打卡/进行中预约 KPI 卡、快捷入口、最近预约列表             |
-| `#/rooms`    | 自习室预约 | 楼栋 → 楼层 → 自习室卡片 → 座位图，点击空闲座位预约；管理员可开启管理模式增删改 |
-| `#/bookings` | 我的预约   | 状态筛选与分页、8 位签到码签到、离座释放、取消预约                       |
-| `#/study`    | 学习计时   | 进行中计时的秒级刷新、结束学习、打卡记录分页                             |
-| `#/stats`    | 学习统计   | 5 项时长 KPI、近 30 天折线图、52 周日历热力图（绝对刻度）、星期分布      |
-| `#/goals`    | 学习目标   | 目标进度条、新建/编辑/删除目标                                           |
-| `#/ranking`  | 排行榜     | 日/周/月/总四维度榜单、我的排名、好友申请与好友今日时长                  |
-| `#/admin`    | 管理后台   | 运营概览、预约记录、违规记录、用户统计（仅管理员）                       |
-| `#/users`    | 用户管理   | 用户筛选、新增/编辑/禁用/删除、操作日志（仅管理员）                      |
+| `/home`     | 学习概览   | 今日/本月/连续打卡/进行中预约 KPI 卡、快捷入口、最近预约列表             |
+| `/reserve`  | 自习室预约 | 楼栋 → 楼层 → 自习室卡片 → 座位图，点击空闲座位预约；管理员可开启管理模式增删改 |
+| `/bookings` | 我的预约   | 状态筛选与分页、8 位签到码签到、离座释放、取消预约                       |
+| `/study`    | 学习计时   | 进行中计时的秒级刷新、结束学习、打卡记录分页                             |
+| `/stats`    | 学习统计   | 5 项时长 KPI、近 30 天折线图、52 周日历热力图（绝对刻度）、星期分布      |
+| `/goals`    | 学习目标   | 目标进度条、新建/编辑/删除目标                                           |
+| `/ranking`  | 排行榜     | 日/周/月/总四维度榜单、我的排名、好友申请与好友今日时长                  |
+| `/admin`    | 管理后台   | 运营概览、预约记录、违规记录、用户统计（仅管理员）                       |
+| `/users`    | 用户管理   | 用户筛选、新增/编辑/禁用/删除、操作日志（仅管理员）                      |
 
 ## 7. 核心业务规则
 
@@ -327,7 +327,7 @@ java -jar target/StudyRoomBookingCheckin-1.0.0.jar --server.port=8081
 setx SERVER_PORT 8081   # Windows；macOS/Linux 使用 export SERVER_PORT=8081
 ```
 
-改端口后访问地址变为 `http://localhost:8081/api/index.html`。
+改端口后访问地址变为 `http://localhost:8081/api/login`。
 
 ### 11.2 登录返回 500（数据库连接失败）
 
@@ -339,10 +339,10 @@ setx SERVER_PORT 8081   # Windows；macOS/Linux 使用 export SERVER_PORT=8081
 
 ### 11.3 访问根路径 404
 
-应用上下文为 `/api`，且默认无根路径页面，请访问：
+应用上下文为 `/api`，根路径已重定向到登录页，请访问：
 
 ```
-http://localhost:8080/api/index.html
+http://localhost:8080/api/login
 ```
 
 ### 11.4 页面接口 401

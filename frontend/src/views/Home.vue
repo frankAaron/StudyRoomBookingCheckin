@@ -31,7 +31,7 @@
         <span>快捷入口</span>
       </div>
       <div style="display: flex; flex-wrap: wrap; gap: 10px">
-        <el-button type="primary" @click="$router.push('/rooms')">预约座位</el-button>
+        <el-button type="primary" @click="$router.push('/reserve')">预约座位</el-button>
         <el-button @click="$router.push('/bookings')">扫码/签到码签到</el-button>
         <el-button @click="$router.push('/study')">开始学习计时</el-button>
         <el-button @click="$router.push('/stats')">查看学习统计</el-button>

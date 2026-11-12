@@ -25,6 +25,11 @@ import io.jsonwebtoken.Claims;
 @RequiredArgsConstructor
 public class JwtInterceptor implements HandlerInterceptor {
 
+    /** 前端 History 路由页面地址（仅 GET 放行，对应的 API 路径仍受保护）。 */
+    private static final java.util.Set<String> SPA_ROUTES = java.util.Set.of(
+            "/login", "/home", "/reserve", "/bookings", "/study",
+            "/stats", "/goals", "/ranking", "/admin", "/users");
+
     private final JwtUtil jwtUtil;
     private final ObjectMapper objectMapper;
 
@@ -37,6 +42,11 @@ public class JwtInterceptor implements HandlerInterceptor {
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
         if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
+            return true;
+        }
+
+        // 前端页面路由交给 SPA 处理，鉴权由页面内路由守卫负责
+        if ("GET".equalsIgnoreCase(request.getMethod()) && SPA_ROUTES.contains(request.getServletPath())) {
             return true;
         }
 
