@@ -1,6 +1,7 @@
 package com.tyut.studyroombookingcheckin.controller;
 
 import com.tyut.studyroombookingcheckin.common.Result;
+import com.tyut.studyroombookingcheckin.security.RequireAdmin;
 import com.tyut.studyroombookingcheckin.service.BuildingService;
 import com.tyut.studyroombookingcheckin.vo.BuildingVO;
 import lombok.RequiredArgsConstructor;
@@ -26,16 +27,19 @@ public class BuildingController {
     }
 
     @PostMapping
+    @RequireAdmin
     public Result<BuildingVO> create(@RequestBody BuildingVO vo) {
         return Result.success(buildingService.create(vo));
     }
 
     @PutMapping("/{id}")
+    @RequireAdmin
     public Result<BuildingVO> update(@PathVariable Long id, @RequestBody BuildingVO vo) {
         return Result.success(buildingService.update(id, vo));
     }
 
     @DeleteMapping("/{id}")
+    @RequireAdmin
     public Result<Void> delete(@PathVariable Long id) {
         buildingService.delete(id);
         return Result.success();

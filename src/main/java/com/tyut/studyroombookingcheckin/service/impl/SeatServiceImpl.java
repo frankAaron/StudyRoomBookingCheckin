@@ -1,6 +1,7 @@
 package com.tyut.studyroombookingcheckin.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.tyut.studyroombookingcheckin.cache.SeatCacheService;
 import com.tyut.studyroombookingcheckin.common.BusinessException;
 import com.tyut.studyroombookingcheckin.common.Constants;
 import com.tyut.studyroombookingcheckin.common.ErrorCode;
@@ -25,27 +26,12 @@ public class SeatServiceImpl implements SeatService {
 
     private final SeatMapper seatMapper;
     private final RoomMapper roomMapper;
+    private final SeatCacheService seatCacheService;
 
     @Override
     public List<SeatVO> listByRoom(Long roomId) {
-        List<Seat> seats = seatMapper.selectList(new LambdaQueryWrapper<Seat>()
-                .eq(Seat::getRoomId, roomId));
-        // row 为 MySQL 保留字，排序在内存中完成，避免 ORDER BY row 语法错误
-        seats.sort((a, b) -> {
-            int ra = a.getSeatRow() == null ? 0 : a.getSeatRow();
-            int rb = b.getSeatRow() == null ? 0 : b.getSeatRow();
-            if (ra != rb) {
-                return ra - rb;
-            }
-            int ca = a.getCol() == null ? 0 : a.getCol();
-            int cb = b.getCol() == null ? 0 : b.getCol();
-            return ca - cb;
-        });
-        List<SeatVO> vos = new ArrayList<>();
-        for (Seat s : seats) {
-            vos.add(toVO(s));
-        }
-        return vos;
+        // 实时座位状态优先读 Redis，未命中回源并回填，避免每次全表查询
+        return seatCacheService.getRoomSeats(roomId);
     }
 
     @Override
@@ -73,6 +59,7 @@ public class SeatServiceImpl implements SeatService {
         s.setCreateTime(LocalDateTime.now());
         s.setUpdateTime(LocalDateTime.now());
         seatMapper.insert(s);
+        seatCacheService.evictRoom(s.getRoomId());
         return toVO(s);
     }
 
@@ -87,12 +74,17 @@ public class SeatServiceImpl implements SeatService {
         s.setCol(vo.getCol());
         s.setUpdateTime(LocalDateTime.now());
         seatMapper.updateById(s);
+        seatCacheService.evictRoom(s.getRoomId());
         return toVO(s);
     }
 
     @Override
     public void delete(Long id) {
+        Seat seat = seatMapper.selectById(id);
         seatMapper.deleteById(id);
+        if (seat != null) {
+            seatCacheService.evictRoom(seat.getRoomId());
+        }
     }
 
     @Override
@@ -122,6 +114,7 @@ public class SeatServiceImpl implements SeatService {
         room.setAvailableSeats(room.getAvailableSeats() + total);
         room.setUpdateTime(LocalDateTime.now());
         roomMapper.updateById(room);
+        seatCacheService.evictRoom(roomId);
     }
 
     @Override
@@ -133,6 +126,7 @@ public class SeatServiceImpl implements SeatService {
         s.setStatus(status);
         s.setUpdateTime(LocalDateTime.now());
         seatMapper.updateById(s);
+        seatCacheService.syncSeat(s);
         return toVO(s);
     }
 

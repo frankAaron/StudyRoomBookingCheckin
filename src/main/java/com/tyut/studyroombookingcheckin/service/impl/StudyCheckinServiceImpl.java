@@ -2,6 +2,7 @@ package com.tyut.studyroombookingcheckin.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.tyut.studyroombookingcheckin.cache.RankingCacheService;
 import com.tyut.studyroombookingcheckin.common.BusinessException;
 import com.tyut.studyroombookingcheckin.common.Constants;
 import com.tyut.studyroombookingcheckin.common.ErrorCode;
@@ -20,23 +21,29 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.DayOfWeek;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.temporal.TemporalAdjusters;
-import java.time.temporal.WeekFields;
 import java.util.ArrayList;
-import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
-import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
 public class StudyCheckinServiceImpl implements StudyCheckinService {
 
+    /** 计入有效学习（连续打卡）的最小分钟数。 */
+    private static final int MIN_VALID_MINUTES = 10;
+
     private final StudyCheckinMapper studyCheckinMapper;
     private final SeatMapper seatMapper;
     private final RoomMapper roomMapper;
     private final BuildingMapper buildingMapper;
+    private final RankingCacheService rankingCacheService;
 
     @Override
     public StudyCheckinVO startCheckin(Long userId, Long seatId, Long bookingId) {
@@ -70,10 +77,11 @@ public class StudyCheckinServiceImpl implements StudyCheckinService {
         }
         LocalDateTime now = LocalDateTime.now();
         c.setEndTime(now);
-        c.setDurationMinutes((int) java.time.Duration.between(c.getStartTime(), now).toMinutes());
+        c.setDurationMinutes((int) Duration.between(c.getStartTime(), now).toMinutes());
         c.setStatus(Constants.CHECKIN_STATUS_ENDED);
         c.setUpdateTime(now);
         studyCheckinMapper.updateById(c);
+        rankingCacheService.evictAll();
         return toVO(c);
     }
 
@@ -89,10 +97,11 @@ public class StudyCheckinServiceImpl implements StudyCheckinService {
         }
         LocalDateTime now = LocalDateTime.now();
         active.setEndTime(now);
-        active.setDurationMinutes((int) java.time.Duration.between(active.getStartTime(), now).toMinutes());
+        active.setDurationMinutes((int) Duration.between(active.getStartTime(), now).toMinutes());
         active.setStatus(Constants.CHECKIN_STATUS_ENDED);
         active.setUpdateTime(now);
         studyCheckinMapper.updateById(active);
+        rankingCacheService.evictAll();
     }
 
     @Override
@@ -103,18 +112,30 @@ public class StudyCheckinServiceImpl implements StudyCheckinService {
         LocalDate weekEnd = weekStart.plusDays(6);
         LocalDate monthStart = today.with(TemporalAdjusters.firstDayOfMonth());
 
-        vo.setTodayMinutes(studyCheckinMapper.sumDailyMinutes(userId, today));
-        vo.setWeekMinutes(studyCheckinMapper.sumRangeMinutes(userId, weekStart, weekEnd));
-        vo.setMonthMinutes(studyCheckinMapper.sumRangeMinutes(userId, monthStart, today));
-        Integer total = studyCheckinMapper.sumRangeMinutes(userId, LocalDate.of(2020, 1, 1), today);
-        vo.setTotalMinutes(total != null ? total : 0);
-        vo.setTotalDays(studyCheckinMapper.countStudyDays(userId));
+        // 一次按天聚合查询，替代逐天/逐周循环查询
+        List<StudyStatisticsVO.DailyMinutesVO> allDaily =
+                studyCheckinMapper.selectDailyMinutes(userId, LocalDate.of(2020, 1, 1), today);
+        Map<LocalDate, Integer> minutesMap = new HashMap<>();
+        int total = 0;
+        for (StudyStatisticsVO.DailyMinutesVO d : allDaily) {
+            int m = d.getMinutes() == null ? 0 : d.getMinutes();
+            minutesMap.put(d.getDate(), m);
+            total += m;
+        }
 
-        vo.setDailyMinutes(buildDailyMinutes(userId, today));
-        vo.setHeatmap(buildHeatmap(userId, today));
+        vo.setTodayMinutes(minutesMap.getOrDefault(today, 0));
+        vo.setWeekMinutes(sumWithin(minutesMap, weekStart, weekEnd));
+        vo.setMonthMinutes(sumWithin(minutesMap, monthStart, today));
+        vo.setTotalMinutes(total);
+        vo.setTotalDays(minutesMap.size());
 
-        Integer current = calculateCurrentStreak(userId, today);
+        vo.setDailyMinutes(buildDailyMinutes(minutesMap, today));
+        vo.setHeatmapDays(buildHeatmapDays(minutesMap, today));
+        vo.setHeatmap(buildHeatmap(minutesMap, today));
+
+        int current = calculateCurrentStreak(minutesMap, today);
         vo.setCurrentStreak(current);
+        vo.setMaxStreak(calculateMaxStreak(minutesMap));
         return vo;
     }
 
@@ -125,48 +146,69 @@ public class StudyCheckinServiceImpl implements StudyCheckinService {
         wrapper.orderByDesc(StudyCheckin::getStartTime);
         Page<StudyCheckin> page = studyCheckinMapper.selectPage(new Page<>(current, size), wrapper);
         Page<StudyCheckinVO> voPage = new Page<>(page.getCurrent(), page.getSize(), page.getTotal());
-        List<StudyCheckinVO> records = new ArrayList<>();
-        for (StudyCheckin c : page.getRecords()) {
-            records.add(toVO(c));
-        }
-        voPage.setRecords(records);
+        voPage.setRecords(toVOList(page.getRecords()));
         return voPage;
     }
 
-    private List<StudyStatisticsVO.DailyMinutesVO> buildDailyMinutes(Long userId, LocalDate today) {
-        List<StudyStatisticsVO.DailyMinutesVO> result = new ArrayList<>();
+    private int sumWithin(Map<LocalDate, Integer> map, LocalDate start, LocalDate end) {
+        int sum = 0;
+        for (LocalDate d = start; !d.isAfter(end); d = d.plusDays(1)) {
+            sum += map.getOrDefault(d, 0);
+        }
+        return sum;
+    }
+
+    private List<StudyStatisticsVO.DailyMinutesVO> buildDailyMinutes(Map<LocalDate, Integer> map, LocalDate today) {
+        List<StudyStatisticsVO.DailyMinutesVO> result = new ArrayList<>(30);
         LocalDate start = today.minusDays(29);
         for (int i = 0; i < 30; i++) {
             LocalDate date = start.plusDays(i);
             StudyStatisticsVO.DailyMinutesVO d = new StudyStatisticsVO.DailyMinutesVO();
             d.setDate(date);
-            d.setMinutes(studyCheckinMapper.sumDailyMinutes(userId, date));
+            d.setMinutes(map.getOrDefault(date, 0));
             result.add(d);
         }
         return result;
     }
 
-    private List<Integer> buildHeatmap(Long userId, LocalDate today) {
-        List<Integer> heatmap = new ArrayList<>();
-        LocalDate end = today;
-        LocalDate start = end.minusWeeks(52).with(TemporalAdjusters.previousOrSame(DayOfWeek.SUNDAY));
+    /**
+     * 最近 52 周按天聚合，供热力图绝对刻度使用。
+     */
+    private List<StudyStatisticsVO.DailyMinutesVO> buildHeatmapDays(Map<LocalDate, Integer> map, LocalDate today) {
+        List<StudyStatisticsVO.DailyMinutesVO> result = new ArrayList<>();
+        LocalDate start = today.minusWeeks(52)
+                .with(TemporalAdjusters.previousOrSame(DayOfWeek.SUNDAY));
+        for (LocalDate d = start; !d.isAfter(today); d = d.plusDays(1)) {
+            StudyStatisticsVO.DailyMinutesVO item = new StudyStatisticsVO.DailyMinutesVO();
+            item.setDate(d);
+            item.setMinutes(map.getOrDefault(d, 0));
+            result.add(item);
+        }
+        return result;
+    }
+
+    /**
+     * 按星期几聚合最近 52 周的学习时长：索引 0=周日 ... 6=周六。
+     */
+    private List<Integer> buildHeatmap(Map<LocalDate, Integer> map, LocalDate today) {
+        List<Integer> heatmap = new ArrayList<>(7);
         for (int i = 0; i < 7; i++) {
             heatmap.add(0);
         }
-        for (LocalDate d = start; !d.isAfter(end); d = d.plusDays(1)) {
-            int minutes = studyCheckinMapper.sumDailyMinutes(userId, d) != null
-                    ? studyCheckinMapper.sumDailyMinutes(userId, d) : 0;
-            heatmap.set(d.getDayOfWeek().getValue() % 7, heatmap.get(d.getDayOfWeek().getValue() % 7) + minutes);
+        LocalDate start = today.minusWeeks(52).with(TemporalAdjusters.previousOrSame(DayOfWeek.SUNDAY));
+        for (LocalDate d = start; !d.isAfter(today); d = d.plusDays(1)) {
+            int idx = d.getDayOfWeek().getValue() % 7;
+            heatmap.set(idx, heatmap.get(idx) + map.getOrDefault(d, 0));
         }
         return heatmap;
     }
 
-    private Integer calculateCurrentStreak(Long userId, LocalDate today) {
+    private int calculateCurrentStreak(Map<LocalDate, Integer> map, LocalDate today) {
         int streak = 0;
         LocalDate date = today;
         while (true) {
-            Integer minutes = studyCheckinMapper.sumDailyMinutes(userId, date);
-            if (minutes == null || minutes < 10) {
+            Integer minutes = map.get(date);
+            if (minutes == null || minutes < MIN_VALID_MINUTES) {
                 break;
             }
             streak++;
@@ -175,25 +217,97 @@ public class StudyCheckinServiceImpl implements StudyCheckinService {
         return streak;
     }
 
-    private StudyCheckinVO toVO(StudyCheckin c) {
-        StudyCheckinVO vo = new StudyCheckinVO();
-        vo.setId(c.getId());
-        vo.setUserId(c.getUserId());
-        vo.setSeatId(c.getSeatId());
-        Seat s = seatMapper.selectById(c.getSeatId());
-        if (s != null) vo.setSeatNo(s.getSeatNo());
-        if (s != null) {
-            Room r = roomMapper.selectById(s.getRoomId());
-            if (r != null) {
-                vo.setRoomName(r.getName());
-                Building b = buildingMapper.selectById(r.getBuildingId());
-                if (b != null) vo.setBuildingName(b.getName());
+    private int calculateMaxStreak(Map<LocalDate, Integer> map) {
+        int max = 0;
+        int current = 0;
+        LocalDate prev = null;
+        for (Map.Entry<LocalDate, Integer> e : map.entrySet().stream()
+                .filter(en -> en.getValue() != null && en.getValue() >= MIN_VALID_MINUTES)
+                .sorted(Map.Entry.comparingByKey())
+                .toList()) {
+            if (prev != null && prev.plusDays(1).equals(e.getKey())) {
+                current++;
+            } else {
+                current = 1;
+            }
+            max = Math.max(max, current);
+            prev = e.getKey();
+        }
+        return max;
+    }
+
+    /**
+     * 批量转换打卡记录，一次性加载座位/房间/楼栋，消除 N+1。
+     */
+    private List<StudyCheckinVO> toVOList(List<StudyCheckin> checkins) {
+        List<StudyCheckinVO> result = new ArrayList<>();
+        if (checkins == null || checkins.isEmpty()) {
+            return result;
+        }
+        Set<Long> seatIds = new HashSet<>();
+        for (StudyCheckin c : checkins) {
+            if (c.getSeatId() != null) {
+                seatIds.add(c.getSeatId());
             }
         }
-        vo.setStartTime(c.getStartTime());
-        vo.setEndTime(c.getEndTime());
-        vo.setDurationMinutes(c.getDurationMinutes());
-        vo.setStatus(c.getStatus());
-        return vo;
+        Map<Long, Seat> seatMap = new HashMap<>();
+        if (!seatIds.isEmpty()) {
+            for (Seat s : seatMapper.selectBatchIds(seatIds)) {
+                seatMap.put(s.getId(), s);
+            }
+        }
+        Set<Long> roomIds = new HashSet<>();
+        for (Seat s : seatMap.values()) {
+            if (s.getRoomId() != null) {
+                roomIds.add(s.getRoomId());
+            }
+        }
+        Map<Long, Room> roomMap = new HashMap<>();
+        if (!roomIds.isEmpty()) {
+            for (Room r : roomMapper.selectBatchIds(roomIds)) {
+                roomMap.put(r.getId(), r);
+            }
+        }
+        Set<Long> buildingIds = new HashSet<>();
+        for (Room r : roomMap.values()) {
+            if (r.getBuildingId() != null) {
+                buildingIds.add(r.getBuildingId());
+            }
+        }
+        Map<Long, Building> buildingMap = new HashMap<>();
+        if (!buildingIds.isEmpty()) {
+            for (Building b : buildingMapper.selectBatchIds(buildingIds)) {
+                buildingMap.put(b.getId(), b);
+            }
+        }
+
+        for (StudyCheckin c : checkins) {
+            StudyCheckinVO vo = new StudyCheckinVO();
+            vo.setId(c.getId());
+            vo.setUserId(c.getUserId());
+            vo.setSeatId(c.getSeatId());
+            Seat s = seatMap.get(c.getSeatId());
+            if (s != null) {
+                vo.setSeatNo(s.getSeatNo());
+                Room r = roomMap.get(s.getRoomId());
+                if (r != null) {
+                    vo.setRoomName(r.getName());
+                    Building b = buildingMap.get(r.getBuildingId());
+                    if (b != null) {
+                        vo.setBuildingName(b.getName());
+                    }
+                }
+            }
+            vo.setStartTime(c.getStartTime());
+            vo.setEndTime(c.getEndTime());
+            vo.setDurationMinutes(c.getDurationMinutes());
+            vo.setStatus(c.getStatus());
+            result.add(vo);
+        }
+        return result;
+    }
+
+    private StudyCheckinVO toVO(StudyCheckin c) {
+        return toVOList(List.of(c)).get(0);
     }
 }

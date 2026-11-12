@@ -8,13 +8,16 @@ import com.tyut.studyroombookingcheckin.mapper.StudyCheckinMapper;
 import com.tyut.studyroombookingcheckin.mapper.StudyGoalMapper;
 import com.tyut.studyroombookingcheckin.service.StudyGoalService;
 import com.tyut.studyroombookingcheckin.vo.GoalVO;
+import com.tyut.studyroombookingcheckin.vo.StudyStatisticsVO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -37,7 +40,7 @@ public class StudyGoalServiceImpl implements StudyGoalService {
         g.setUpdateTime(LocalDateTime.now());
         goalMapper.insert(g);
         refreshGoalProgress(userId);
-        return toVO(g);
+        return toVO(goalMapper.selectById(g.getId()));
     }
 
     @Override
@@ -52,7 +55,7 @@ public class StudyGoalServiceImpl implements StudyGoalService {
         g.setUpdateTime(LocalDateTime.now());
         goalMapper.updateById(g);
         refreshGoalProgress(userId);
-        return toVO(g);
+        return toVO(goalMapper.selectById(id));
     }
 
     @Override
@@ -66,14 +69,13 @@ public class StudyGoalServiceImpl implements StudyGoalService {
 
     @Override
     public List<GoalVO> listByUser(Long userId) {
+        refreshGoalProgress(userId);
         List<StudyGoal> goals = goalMapper.selectList(new LambdaQueryWrapper<StudyGoal>()
                 .eq(StudyGoal::getUserId, userId)
                 .orderByDesc(StudyGoal::getCreateTime));
-        refreshGoalProgress(userId);
         List<GoalVO> vos = new ArrayList<>();
         for (StudyGoal g : goals) {
-            StudyGoal fresh = goalMapper.selectById(g.getId());
-            vos.add(toVO(fresh));
+            vos.add(toVO(g));
         }
         return vos;
     }
@@ -87,14 +89,38 @@ public class StudyGoalServiceImpl implements StudyGoalService {
         return toVO(g);
     }
 
+    /**
+     * 一次按天聚合查询覆盖所有目标区间，替代逐目标 SUM 查询与逐条回查。
+     */
     @Override
     public void refreshGoalProgress(Long userId) {
         List<StudyGoal> goals = goalMapper.selectList(new LambdaQueryWrapper<StudyGoal>()
                 .eq(StudyGoal::getUserId, userId));
+        if (goals.isEmpty()) {
+            return;
+        }
+        LocalDate today = LocalDate.now();
+        LocalDate minStart = today;
         for (StudyGoal g : goals) {
-            Integer completed = checkinMapper.sumRangeMinutes(userId, g.getStartDate(), LocalDate.now());
-            g.setCompletedMinutes(completed != null ? completed : 0);
-            if (g.getCompletedMinutes() >= g.getTargetMinutes() && g.getStatus() == 0) {
+            if (g.getStartDate() != null && g.getStartDate().isBefore(minStart)) {
+                minStart = g.getStartDate();
+            }
+        }
+        List<StudyStatisticsVO.DailyMinutesVO> rows =
+                checkinMapper.selectDailyMinutes(userId, minStart, today);
+        Map<LocalDate, Integer> minutesMap = new HashMap<>();
+        for (StudyStatisticsVO.DailyMinutesVO row : rows) {
+            minutesMap.put(row.getDate(), row.getMinutes() == null ? 0 : row.getMinutes());
+        }
+
+        for (StudyGoal g : goals) {
+            LocalDate start = g.getStartDate() != null ? g.getStartDate() : today;
+            int completed = 0;
+            for (LocalDate d = start; !d.isAfter(today); d = d.plusDays(1)) {
+                completed += minutesMap.getOrDefault(d, 0);
+            }
+            g.setCompletedMinutes(completed);
+            if (completed >= g.getTargetMinutes() && g.getStatus() == 0) {
                 g.setStatus(1);
                 g.setCompleteTime(LocalDateTime.now());
             }

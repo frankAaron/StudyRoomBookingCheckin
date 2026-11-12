@@ -2,6 +2,7 @@ package com.tyut.studyroombookingcheckin.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.tyut.studyroombookingcheckin.common.Result;
+import com.tyut.studyroombookingcheckin.security.RequireAdmin;
 import com.tyut.studyroombookingcheckin.service.RoomService;
 import com.tyut.studyroombookingcheckin.vo.RoomVO;
 import lombok.RequiredArgsConstructor;
@@ -38,16 +39,19 @@ public class RoomController {
     }
 
     @PostMapping
+    @RequireAdmin
     public Result<RoomVO> create(@RequestBody RoomVO vo) {
         return Result.success(roomService.create(vo));
     }
 
     @PutMapping("/{id}")
+    @RequireAdmin
     public Result<RoomVO> update(@PathVariable Long id, @RequestBody RoomVO vo) {
         return Result.success(roomService.update(id, vo));
     }
 
     @DeleteMapping("/{id}")
+    @RequireAdmin
     public Result<Void> delete(@PathVariable Long id) {
         roomService.delete(id);
         return Result.success();

@@ -7,14 +7,6 @@ public class Constants {
 
     public static final Long DEFAULT_TIMEOUT_MINUTES = 30L;
 
-    public static final String CACHE_SEAT_STATUS_KEY = "seat:status:";
-    public static final String CACHE_SEAT_STATISTICS_KEY = "seat:statistics:";
-    public static final String CACHE_RANKING_DAILY_KEY = "ranking:daily:";
-    public static final String CACHE_RANKING_WEEKLY_KEY = "ranking:weekly:";
-    public static final String CACHE_USER_INFO_KEY = "user:info:";
-
-    public static final String ONLINE_SEATS_KEY = "online:seats";
-
     public static final Integer SEAT_STATUS_FREE = 0;
     public static final Integer SEAT_STATUS_OCCUPIED = 1;
     public static final Integer SEAT_STATUS_RESERVED = 2;

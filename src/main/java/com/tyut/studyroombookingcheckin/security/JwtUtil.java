@@ -4,6 +4,7 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
+import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -21,6 +22,13 @@ public class JwtUtil {
 
     @Value("${jwt.expiration}")
     private Long expiration;
+
+    @PostConstruct
+    public void validateSecret() {
+        if (secret == null || secret.isBlank() || secret.length() < 32) {
+            throw new IllegalStateException("JWT_SECRET 环境变量缺失或长度不足 32 字符，请先在运行环境配置安全的随机密钥");
+        }
+    }
 
     private SecretKey getKey() {
         byte[] keyBytes = secret.getBytes(StandardCharsets.UTF_8);

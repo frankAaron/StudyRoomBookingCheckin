@@ -16,6 +16,8 @@ public class StudyStatisticsVO {
     private Integer currentStreak;
     private Integer maxStreak;
     private List<DailyMinutesVO> dailyMinutes;
+    /** 最近 52 周按天聚合数据，供日历热力图使用（绝对刻度分级） */
+    private List<DailyMinutesVO> heatmapDays;
     private List<Integer> heatmap;
 
     @Data

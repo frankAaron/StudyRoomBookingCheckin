@@ -23,6 +23,12 @@ public class BookingController {
         return Result.success(bookingService.create(userId, dto));
     }
 
+    @PostMapping("/checkin/code")
+    public Result<BookingVO> checkinByCode(@RequestParam String code) {
+        Long userId = SecurityContextHolder.getUserId();
+        return Result.success(bookingService.checkinByCode(code, userId));
+    }
+
     @PostMapping("/{id}/checkin")
     public Result<BookingVO> checkin(@PathVariable Long id) {
         Long userId = SecurityContextHolder.getUserId();

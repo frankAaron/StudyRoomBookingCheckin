@@ -1,6 +1,7 @@
 package com.tyut.studyroombookingcheckin.controller;
 
 import com.tyut.studyroombookingcheckin.common.Result;
+import com.tyut.studyroombookingcheckin.security.RequireAdmin;
 import com.tyut.studyroombookingcheckin.service.SeatService;
 import com.tyut.studyroombookingcheckin.vo.SeatVO;
 import lombok.RequiredArgsConstructor;
@@ -31,11 +32,13 @@ public class SeatController {
     }
 
     @PostMapping
+    @RequireAdmin
     public Result<SeatVO> create(@RequestBody SeatVO vo) {
         return Result.success(seatService.create(vo));
     }
 
     @PostMapping("/batch")
+    @RequireAdmin
     public Result<Void> batchCreate(@RequestParam Long roomId,
                                     @RequestParam(defaultValue = "6") int rows,
                                     @RequestParam(defaultValue = "10") int cols) {
@@ -44,16 +47,19 @@ public class SeatController {
     }
 
     @PutMapping("/{id}")
+    @RequireAdmin
     public Result<SeatVO> update(@PathVariable Long id, @RequestBody SeatVO vo) {
         return Result.success(seatService.update(id, vo));
     }
 
     @PutMapping("/{id}/status")
+    @RequireAdmin
     public Result<SeatVO> changeStatus(@PathVariable Long id, @RequestParam Integer status) {
         return Result.success(seatService.changeStatus(id, status));
     }
 
     @DeleteMapping("/{id}")
+    @RequireAdmin
     public Result<Void> delete(@PathVariable Long id) {
         seatService.delete(id);
         return Result.success();

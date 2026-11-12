@@ -5,6 +5,7 @@ import com.tyut.studyroombookingcheckin.dto.LoginDTO;
 import com.tyut.studyroombookingcheckin.dto.RegisterDTO;
 import com.tyut.studyroombookingcheckin.service.AuthService;
 import com.tyut.studyroombookingcheckin.vo.LoginVO;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -20,13 +21,21 @@ public class AuthController {
     private final AuthService authService;
 
     @PostMapping("/login")
-    public Result<LoginVO> login(@Valid @RequestBody LoginDTO dto) {
-        return Result.success(authService.login(dto));
+    public Result<LoginVO> login(@Valid @RequestBody LoginDTO dto, HttpServletRequest request) {
+        return Result.success(authService.login(dto, resolveIp(request)));
     }
 
     @PostMapping("/register")
     public Result<Void> register(@Valid @RequestBody RegisterDTO dto) {
         authService.register(dto);
         return Result.success();
+    }
+
+    private String resolveIp(HttpServletRequest request) {
+        String forwarded = request.getHeader("X-Forwarded-For");
+        if (forwarded != null && !forwarded.isBlank()) {
+            return forwarded.split(",")[0].trim();
+        }
+        return request.getRemoteAddr();
     }
 }

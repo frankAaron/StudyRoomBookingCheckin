@@ -10,6 +10,9 @@ public interface BookingService {
 
     BookingVO checkin(Long bookingId, Long userId);
 
+    /** 8 位签到码签到 */
+    BookingVO checkinByCode(String checkinCode, Long userId);
+
     BookingVO checkout(Long bookingId, Long userId);
 
     BookingVO cancel(Long bookingId, Long userId);
