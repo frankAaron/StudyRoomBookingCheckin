@@ -124,8 +124,16 @@ setx DB_PASSWORD 你的密码
 setx JWT_SECRET 至少32字符的随机密钥
 ```
 
-> `DB_PASSWORD` 与 `JWT_SECRET` 为必填项，缺失时应用启动即失败（`JwtUtil` 会校验密钥长度）。
-> 环境变量只对新启动的进程生效，设置后需重新打开终端或完全重启 IDEA。
+也可以在项目根目录新建 `.env.properties`（已被 `.gitignore` 忽略，`application.yml` 通过 `spring.config.import` 自动加载），IDE 直接启动即可：
+
+```properties
+DB_USERNAME=root
+DB_PASSWORD=你的密码
+JWT_SECRET=至少32字符的随机密钥
+```
+
+> `DB_PASSWORD` 与 `JWT_SECRET` 为必填项，环境变量与 `.env.properties` 都缺失时应用启动即失败（`JwtUtil` 会校验密钥长度）。
+> 环境变量只对新启动的进程生效，设置后需重新打开终端或完全重启 IDEA；`.env.properties` 修改后需重新编译资源（IDE 重新构建项目）才能生效。
 
 ### 5.4 构建前端（可选）
 
