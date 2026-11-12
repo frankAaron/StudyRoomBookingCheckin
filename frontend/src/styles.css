@@ -289,13 +289,6 @@ a {
   font-size: 17px;
 }
 
-.sidebar-footer {
-  font-size: 11px;
-  color: #6b7692;
-  padding: 10px 12px 0;
-  border-top: 1px solid rgba(255, 255, 255, 0.07);
-}
-
 .main {
   flex: 1;
   min-width: 0;
@@ -383,19 +376,54 @@ a {
   word-break: break-all;
 }
 
-.avatar-uploader {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  margin-top: 10px;
+.profile-avatar {
+  position: relative;
+  flex: none;
+  padding: 0;
+  border: none;
+  background: none;
+  border-radius: 50%;
+  cursor: pointer;
+  line-height: 0;
 }
 
-.avatar-preview {
-  width: 64px;
-  height: 64px;
+.profile-avatar:disabled {
+  cursor: progress;
+}
+
+.profile-avatar-mask {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border-radius: 50%;
-  object-fit: cover;
-  border: 2px solid var(--border);
+  color: #fff;
+  font-size: 18px;
+  background: rgba(0, 0, 0, 0.45);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.profile-avatar:hover .profile-avatar-mask,
+.profile-avatar:focus-visible .profile-avatar-mask,
+.profile-avatar:disabled .profile-avatar-mask {
+  opacity: 1;
+}
+
+.profile-avatar:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+.profile-avatar-mask .spinning {
+  animation: profile-avatar-spin 0.9s linear infinite;
+}
+
+@keyframes profile-avatar-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .field-error {
@@ -599,8 +627,7 @@ a {
   }
   .brand-name,
   .brand-sub,
-  .nav-item span,
-  .sidebar-footer {
+  .nav-item span {
     display: none;
   }
   .brand {

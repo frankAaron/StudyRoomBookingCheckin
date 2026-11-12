@@ -23,7 +23,6 @@
           <span>{{ item.label }}</span>
         </a>
       </nav>
-      <div class="sidebar-footer">v2.0 · Vue3 + Element Plus</div>
     </aside>
 
     <div class="main">
@@ -33,7 +32,6 @@
           <div class="topbar-sub">{{ subtitle }}</div>
         </div>
         <div class="spacer"></div>
-        <el-button text :icon="Refresh" @click="refreshPage">刷新</el-button>
         <button class="avatar-btn" type="button" aria-label="打开个人信息" @click="openProfile">
           <el-avatar :size="34" :src="assetUrl(store.user?.avatar)">
             {{ (store.user?.nickname || 'U').slice(0, 1) }}
@@ -50,35 +48,40 @@
     <el-dialog v-model="profileVisible" title="个人信息" width="460px" destroy-on-close>
       <div v-loading="profileLoading">
         <div class="profile-head">
-          <el-avatar :size="62" :src="assetUrl(profile.avatar)">
-            {{ (profile.nickname || 'U').slice(0, 1) }}
-          </el-avatar>
+          <button
+            class="profile-avatar"
+            type="button"
+            title="点击更换头像"
+            aria-label="点击更换头像"
+            :disabled="avatarUploading"
+            @click="pickAvatar"
+          >
+            <el-avatar :size="62" :src="avatarPreview || assetUrl(profile.avatar)">
+              {{ (profile.nickname || 'U').slice(0, 1) }}
+            </el-avatar>
+            <span class="profile-avatar-mask">
+              <el-icon :class="{ spinning: avatarUploading }"><Loading v-if="avatarUploading" /><Camera v-else /></el-icon>
+            </span>
+            <input ref="fileInput" type="file" accept="image/jpeg,image/png" style="display: none" @change="onAvatarPick" />
+          </button>
           <div>
             <div style="font-size: 17px; font-weight: 700">{{ profile.nickname || '-' }}</div>
             <div class="muted" style="font-size: 12.5px">
               {{ profile.username }} · {{ profile.role === 1 ? '管理员' : '学生' }}
             </div>
+            <div class="muted" style="font-size: 12px; margin-top: 3px">点击头像可更换</div>
           </div>
           <div class="spacer"></div>
           <el-button size="small" :icon="Edit" @click="openEdit">编辑</el-button>
         </div>
         <div class="profile-grid">
+          <div class="profile-item"><div class="k">用户 ID</div><div class="v">{{ profile.userId ?? '-' }}</div></div>
           <div class="profile-item"><div class="k">学号</div><div class="v">{{ profile.studentNo || '-' }}</div></div>
           <div class="profile-item"><div class="k">联系电话</div><div class="v">{{ profile.phone || '未填写' }}</div></div>
           <div class="profile-item"><div class="k">邮箱</div><div class="v">{{ profile.email || '未填写' }}</div></div>
           <div class="profile-item"><div class="k">累计学习</div><div class="v">{{ fmtMinutes(profile.totalStudyMinutes) }}</div></div>
           <div class="profile-item"><div class="k">最长连续打卡</div><div class="v">{{ profile.maxStreakDays || 0 }} 天</div></div>
           <div class="profile-item"><div class="k">注册时间</div><div class="v">{{ fmtDate(profile.createTime) }}</div></div>
-        </div>
-        <div class="avatar-uploader">
-          <img v-if="avatarPreview" class="avatar-preview" :src="avatarPreview" alt="头像预览" />
-          <el-avatar v-else :size="64" :src="assetUrl(profile.avatar)">{{ (profile.nickname || 'U').slice(0, 1) }}</el-avatar>
-          <div>
-            <input ref="fileInput" type="file" accept="image/jpeg,image/png" style="display: none" @change="onAvatarPick" />
-            <el-button size="small" :loading="avatarUploading" @click="fileInput?.click()">更换头像</el-button>
-            <el-button v-if="avatarFailed" size="small" type="danger" plain @click="retryAvatar">重试上传</el-button>
-            <div class="muted" style="font-size: 12px; margin-top: 6px">支持 JPG / PNG，不超过 2MB</div>
-          </div>
         </div>
       </div>
       <template #footer>
@@ -134,7 +137,7 @@ import { computed, reactive, ref, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
-  House, Grid, Tickets, Timer, TrendCharts, Aim, Trophy, Setting, User, Edit, Refresh
+  House, Grid, Tickets, Timer, TrendCharts, Aim, Trophy, Setting, User, Edit, Camera, Loading
 } from '@element-plus/icons-vue'
 import { store, clearSession, patchUser } from './store'
 import { api, assetUrl } from './api'
@@ -176,8 +179,6 @@ const profile = reactive({})
 const fileInput = ref(null)
 const avatarPreview = ref('')
 const avatarUploading = ref(false)
-const avatarFailed = ref(false)
-let lastAvatarFile = null
 
 const editVisible = ref(false)
 const editSaving = ref(false)
@@ -218,10 +219,6 @@ function go(name) {
   router.push({ name })
 }
 
-function refreshPage() {
-  router.replace({ path: route.path, query: { ...route.query, _t: Date.now() } })
-}
-
 function fmtMinutes(min) {
   const m = Number(min || 0)
   if (m < 60) return `${m} 分钟`
@@ -250,7 +247,6 @@ async function loadProfile() {
 function openProfile() {
   profileVisible.value = true
   avatarPreview.value = ''
-  avatarFailed.value = false
   loadProfile()
 }
 
@@ -302,6 +298,11 @@ async function savePassword() {
   })
 }
 
+function pickAvatar() {
+  if (avatarUploading.value) return
+  fileInput.value?.click()
+}
+
 function onAvatarPick(event) {
   const file = event.target.files && event.target.files[0]
   event.target.value = ''
@@ -314,29 +315,24 @@ function onAvatarPick(event) {
     ElMessage.error('图片大小不能超过 2MB')
     return
   }
-  lastAvatarFile = file
   avatarPreview.value = URL.createObjectURL(file)
   uploadAvatar(file)
 }
 
 async function uploadAvatar(file) {
   avatarUploading.value = true
-  avatarFailed.value = false
   try {
     const url = await api.uploadAvatar(file)
     profile.avatar = url
     patchUser({ avatar: url })
     ElMessage.success('头像已更新')
   } catch (e) {
-    avatarFailed.value = true
     ElMessage.error(`头像上传失败：${e.message}`)
   } finally {
+    // 上传结束（成功或失败）都释放本地预览，头像统一以服务端返回地址渲染
+    avatarPreview.value = ''
     avatarUploading.value = false
   }
-}
-
-function retryAvatar() {
-  if (lastAvatarFile) uploadAvatar(lastAvatarFile)
 }
 
 async function logout() {
